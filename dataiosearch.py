@@ -42,7 +42,7 @@ def search_part_number_in_dataio(part_number):
 
                 # First check if there are result links
                 print("Checking for result links...")
-                first_link = page.locator('a[id="dnn_ctr6237_View_lvDeviceSearchResults_ctrl"]')
+                first_link = page.locator('a[id*="dnn_ctr6237_View_lvDeviceSearchResults_ctrl"][id*="lnkDeviceSearchResultDevice"]')
                 
                 if first_link.count() > 0:
                     print("Results found! Clicking first result:", first_link.first.inner_text())
@@ -80,13 +80,19 @@ def search_part_number_in_dataio(part_number):
                     time.sleep(3)
                     
                     print("Waiting for results table...")
-                    page.wait_for_selector('div[role="tabpanel"]', timeout=15000)
+                    page.wait_for_selector('div[class="row"]', timeout=15000)
                     print("Results table found!")
 
-                    time.sleep(2)
+                    time.sleep(1)
 
                     print("Extracting results...")
-                    results = page.locator('div[class="col-sm-5"][id="dataPartNumber"]', timeout=30000).text_content()
+                    # Wait for the results element to appear first
+                    selector = ('div[id="dnn_ctr6237_View_lvDeviceDetailEngineContent_'
+                               'lvDeviceDetailProductContent_1_lvDeviceDetailProductAlgorithms_0_'
+                               'lvDeviceDetailAlgorithmAdapters_0_lvDeviceDetailAlgorithmAdaptersRow_0"] '
+                               'div[class="col-sm-5"][id="dataPartNumber"]')
+                    page.wait_for_selector(selector, timeout=30000)
+                    results = page.locator(selector).text_content()
                     print("Results extracted!")
 
                     if results:
