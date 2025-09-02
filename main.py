@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import time
 from systemgeneralsearch import search_part_number_in_system_general_limited
 from dataiosearch import search_part_number_in_dataio
+from bpmicrosearch import search_part_number_in_bpmicro
 
 
 def search_with_variations(original_part_number,website):
@@ -27,7 +28,7 @@ def search_with_variations(original_part_number,website):
             elif website == "dataio":
                 result = search_part_number_in_dataio(part_number)
             elif website == "BPMicro":
-                result = None;
+                result = search_part_number_in_bpmicro(part_number);
             if result:
                 print(f"SUCCESS! Found result for part number '{part_number}': {result}")
                 return part_number, result
@@ -96,6 +97,7 @@ if __name__ == "__main__":
         print(f"Search failed: {e}")
         # Save failure to file
         try:
+            
             with open("search_results.txt", "w") as f:
                 f.write(f"Part Number: {part_number}\n")
                 f.write(f"Status: FAILED\n")

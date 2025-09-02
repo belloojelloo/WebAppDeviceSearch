@@ -2,6 +2,7 @@ from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 import time
 
+
 def search_part_number_in_system_general_limited(part_number):
     with sync_playwright() as p:
         # Launch browser with longer timeout and visible for debugging

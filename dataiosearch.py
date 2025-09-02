@@ -2,6 +2,7 @@ from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 import time
 
+
 def search_part_number_in_dataio(part_number):
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False, slow_mo=1000)
