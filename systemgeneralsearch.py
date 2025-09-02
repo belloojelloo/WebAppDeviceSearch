@@ -34,7 +34,7 @@ def _search_single_part_system_general(part_number):
     """Internal function to search for a single part number without variations"""
     with sync_playwright() as p:
         # Launch browser with longer timeout and visible for debugging
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(channel="msedge", headless=True)
         page = browser.new_page()
         
         # Set longer timeouts

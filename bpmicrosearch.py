@@ -33,7 +33,7 @@ def search_part_number_in_bpmicro(original_part_number):
 
 def _search_single_part_bpmicro(part_number):
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(channel="msedge", headless=True)
         page = browser.new_page()
         
         page.set_default_timeout(60000)
