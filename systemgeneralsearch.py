@@ -116,9 +116,9 @@ def _search_single_part_system_general(part_number):
                     print("Neither results table nor 'No records found' message found")
                     has_results = False
             
-            # Give extra time for results to load if we have results
+            # Give minimal time for results to load if we have results
             if has_results:
-                time.sleep(3)
+                time.sleep(1)
             
             # Print the page title
             print(f"Page title: {page.title()}")

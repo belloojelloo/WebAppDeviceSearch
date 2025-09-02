@@ -58,6 +58,8 @@ def _search_single_part_bpmicro(part_number):
             frame = page.frame_locator('iframe#myIframe').first
             print("Switched to iframe context")
 
+            time.sleep(1)
+
             # Wait for the search section inside iframe
             print("Waiting for search section in iframe...")
             frame.locator('input[placeholder="Type to search for a device..."]').wait_for(timeout=30000)
