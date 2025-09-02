@@ -125,23 +125,65 @@ def _search_single_part_bpmicro(part_number):
                 # Wait for the page to load after clicking
                 time.sleep(3)
                 
-                # Extract the socket number from the table that appears after clicking
+                # Extract socket modules from the table that appears after clicking
                 try:
                     # Wait for the table to load after clicking
-                    print("Waiting for socket adapter table to load...")
+                    print("Waiting for device information table to load...")
                     time.sleep(3)
                     
-                    # Look for the table with socket adapter information within the iframe
-                    table_selector = 'table.data-table'
-                    frame.locator(table_selector).wait_for(state="visible", timeout=15000)
-                    print("Socket adapter table found!")
+                    # Look for any table that contains device information
+                    print("Looking for device information table...")
+                    tables = frame.locator('table')
                     
-                    # Extract the socket number from the first row of the table
-                    # The socket number is in the first column as a link text
-                    socket_link = frame.locator('table.data-table tbody tr td:first-child a').first
-                    socket_number = socket_link.text_content().strip()
-                    print(f"Extracted socket number from table: {socket_number}")
-                    return socket_number
+                    if tables.count() > 0:
+                        print(f"Found {tables.count()} tables, searching for Socket Modules row...")
+                        
+                        # Search through all tables for Socket Modules information
+                        for i in range(tables.count()):
+                            table = tables.nth(i)
+                            table_text = table.text_content()
+                            
+                            # Look for "Socket Modules" row in the table
+                            if "Socket Modules" in table_text or "Socket Module" in table_text:
+                                print(f"Found Socket Modules information in table {i+1}")
+                                print(f"Table content: {table_text[:500]}...")  # Print first 500 chars for debugging
+                                
+                                # Look for table rows
+                                rows = table.locator('tr')
+                                for j in range(rows.count()):
+                                    row = rows.nth(j)
+                                    row_text = row.text_content()
+                                    
+                                    # Check if this row contains Socket Modules information
+                                    if "Socket Modules" in row_text or "Socket Module" in row_text:
+                                        print(f"Found Socket Modules row: {row_text}")
+                                        
+                                        # Look for the cell containing the socket module list
+                                        cells = row.locator('td')
+                                        for k in range(cells.count()):
+                                            cell = cells.nth(k)
+                                            cell_text = cell.text_content().strip()
+                                            
+                                            # Skip the "Socket Modules" label cell, look for the cell with actual socket names
+                                            if cell_text and "Socket Modules" not in cell_text and len(cell_text) > 5:
+                                                # This should contain the socket modules like "SM48D, SM48DH, ASM48D300, ASM48D600, SM48DB (disc.)"
+                                                print(f"Found socket modules: {cell_text}")
+                                                return cell_text
+                                
+                                # If we found the table but couldn't extract from rows, try extracting from full table text
+                                import re
+                                # Look for pattern after "Socket Modules" or "Socket Module"
+                                socket_pattern = re.search(r'Socket Modules?\s*:?\s*([A-Z0-9, ().-]+)', table_text, re.IGNORECASE)
+                                if socket_pattern:
+                                    socket_modules = socket_pattern.group(1).strip()
+                                    print(f"Extracted socket modules from pattern: {socket_modules}")
+                                    return socket_modules
+                        
+                        print("Socket Modules information not found in any table")
+                        return "Socket modules information not found"
+                    else:
+                        print("No tables found on the page")
+                        return "No device information table found"
                             
                 except Exception as extract_error:
                     print(f"Error extracting socket number from table: {extract_error}")

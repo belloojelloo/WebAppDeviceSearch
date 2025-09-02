@@ -32,7 +32,7 @@ def search_part_number_in_dataio(original_part_number):
 
 def _search_single_part_dataio(part_number):
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(headless=False)
         page = browser.new_page()
         
         page.set_default_timeout(60000)
@@ -114,13 +114,71 @@ def _search_single_part_dataio(part_number):
                     time.sleep(1)
 
                     print("Extracting results...")
-                    # Wait for the results element to appear first
-                    selector = ('div[id="dnn_ctr6237_View_lvDeviceDetailEngineContent_'
-                               'lvDeviceDetailProductContent_1_lvDeviceDetailProductAlgorithms_0_'
-                               'lvDeviceDetailAlgorithmAdapters_0_lvDeviceDetailAlgorithmAdaptersRow_0"] '
-                               'div[class="col-sm-5"][id="dataPartNumber"]')
-                    page.wait_for_selector(selector, timeout=30000)
-                    results = page.locator(selector).text_content()
+                    # Look for Standard Adapter information and the socket number below it
+                    try:
+                        # Strategy: Find "Standard Adapter" and look for the actual socket number in the adjacent column
+                        adapter_elements = page.locator('text="Standard Adapter"')
+                        if adapter_elements.count() > 0:
+                            print("Found 'Standard Adapter' text on page")
+                            
+                            # Get the parent container that holds both label and value
+                            parent_container = adapter_elements.first.locator('xpath=ancestor::div[contains(@class, "row") or contains(@class, "container")]')
+                            
+                            if parent_container.count() > 0:
+                                print("Found parent container")
+                                
+                                # Look specifically for the socket number in the value column
+                                # Try different approaches to find the actual socket number
+                                socket_selectors = [
+                                    'div[id*="dataPartNumber"]',  # Most specific - the actual data field
+                                    'div[class*="col"]:has-text("Socket"):not(:has-text("Standard Adapter"))',  # Column with socket info
+                                    'div[class*="col-sm-5"]',  # Common value column class
+                                    'div[class*="col"]:nth-child(2)',  # Second column (value column)
+                                ]
+                                
+                                results = None
+                                for selector in socket_selectors:
+                                    socket_elements = parent_container.locator(selector)
+                                    if socket_elements.count() > 0:
+                                        for i in range(socket_elements.count()):
+                                            text = socket_elements.nth(i).text_content().strip()
+                                            # Look for text that looks like a socket number (contains letters/numbers but not "Standard Adapter")
+                                            if (text and 
+                                                text != "Standard Adapter" and 
+                                                "Standard Adapter" not in text and
+                                                text != "Sockets" and
+                                                len(text) > 0):
+                                                results = text
+                                                print(f"Found socket number with selector '{selector}': {results}")
+                                                break
+                                        if results:
+                                            break
+                                
+                                # If still no results, try a broader search in the entire page for socket numbers
+                                if not results:
+                                    print("Trying broader search for socket numbers...")
+                                    # Look for elements that might contain socket numbers near "Standard Adapter"
+                                    all_elements = page.locator('div[id*="dataPartNumber"], span, p')
+                                    for i in range(min(all_elements.count(), 20)):  # Limit to first 20 elements
+                                        text = all_elements.nth(i).text_content().strip()
+                                        # Look for text that could be a socket number (alphanumeric, not common words)
+                                        if (text and 
+                                            text not in ["Standard Adapter", "Sockets", "Socket", "Adapter"] and
+                                            len(text) > 1 and len(text) < 50):  # Reasonable length for socket number
+                                            results = text
+                                            print(f"Found potential socket number: {results}")
+                                            break
+                            else:
+                                print("Could not find parent container for Standard Adapter")
+                                return None
+                        else:
+                            print("'Standard Adapter' text not found")
+                            return None
+                    
+                    except Exception as e:
+                        print(f"Error extracting socket info: {e}")
+                        return None
+                    
                     print("Results extracted!")
 
                     if results:

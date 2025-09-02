@@ -43,8 +43,14 @@ class DeviceSearchUI:
         search_label = ttk.Label(main_frame, text="Part Number:")
         search_label.grid(row=1, column=0, sticky=tk.W, pady=5)
         
+        # Add validation for 255 character limit
+        def validate_input(char):
+            return len(self.search_var.get()) < 255
+        
+        vcmd = (self.root.register(validate_input), '%S')
+        
         self.search_entry = ttk.Entry(main_frame, textvariable=self.search_var, 
-                                     font=("Arial", 12), width=30)
+                                     font=("Arial", 12), width=30, validate='key', validatecommand=vcmd)
         self.search_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
         
         # Website selection section
