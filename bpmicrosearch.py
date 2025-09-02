@@ -23,7 +23,7 @@ def search_part_number_in_bpmicro(original_part_number):
         result = _search_single_part_bpmicro(part_number)
         if result:
             print(f"SUCCESS! Found result for part number '{part_number}': {result}")
-            return result
+            return (result, part_number)
         else:
             print(f"No results found for part number '{part_number}'")
     

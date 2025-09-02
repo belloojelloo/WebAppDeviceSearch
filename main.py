@@ -63,12 +63,14 @@ if __name__ == "__main__":
         result = choose_search_function(website, part_number)
         
         if result:
+            socket_info, actual_part = result
             # Save result to file
-            save_result_to_file(part_number, result)
+            save_result_to_file(actual_part, socket_info)
             
             print(f"\nFinal Result:")
-            print(f"Part Number: {part_number}")
-            print(f"Result: {result}")
+            print(f"Original Part Number: {part_number}")
+            print(f"Part Number Used: {actual_part}")
+            print(f"Result: {socket_info}")
         else:
             print(f"No results found for part number '{part_number}' on {website}")
             # Save failure to file
