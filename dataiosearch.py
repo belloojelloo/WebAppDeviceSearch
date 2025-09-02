@@ -32,7 +32,7 @@ def search_part_number_in_dataio(original_part_number):
 
 def _search_single_part_dataio(part_number):
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False, slow_mo=1000)
+        browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         
         page.set_default_timeout(60000)
