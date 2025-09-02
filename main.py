@@ -6,40 +6,16 @@ from dataiosearch import search_part_number_in_dataio
 from bpmicrosearch import search_part_number_in_bpmicro
 
 
-def search_with_variations(original_part_number,website):
-    """Try searching with different part number variations by removing characters from the end"""
-    part_variations = [original_part_number]
-    
-    # Generate variations by removing one character at a time
-    current_part = original_part_number
-    for i in range(4):  # Try 4 more times
-        if len(current_part) > 1:  # Make sure we don't end up with empty string
-            current_part = current_part[:-1]  # Remove last character
-            part_variations.append(current_part)
-    
-    print(f"Will try these part number variations: {part_variations}")
-    
-    for i, part_number in enumerate(part_variations):
-        print(f"\n--- Attempt {i+1}: Trying part number '{part_number}' ---")
-        
-        try:
-            if website == "systemgeneral":
-                result = search_part_number_in_system_general_limited(part_number)
-            elif website == "dataio":
-                result = search_part_number_in_dataio(part_number)
-            elif website == "BPMicro":
-                result = search_part_number_in_bpmicro(part_number);
-            if result:
-                print(f"SUCCESS! Found result for part number '{part_number}': {result}")
-                return part_number, result
-            else:
-                print(f"No results found for part number '{part_number}'")
-        except Exception as e:
-            print(f"Error searching for part number '{part_number}': {e}")
-            continue
-    
-    # If we get here, no results were found for any variation
-    raise Exception(f"No results found for any variation of part number '{original_part_number}' after trying {len(part_variations)} variations")
+def choose_search_function(website, part_number):
+    """Choose and execute the appropriate search function based on website selection"""
+    if website == "systemgeneral":
+        return search_part_number_in_system_general_limited(part_number)
+    elif website == "dataio":
+        return search_part_number_in_dataio(part_number)
+    elif website == "BPMicro":
+        return search_part_number_in_bpmicro(part_number)
+    else:
+        raise ValueError(f"Unknown website: {website}")
 
 def save_result_to_file(part_number, skb_name, filename="search_results.txt"):
     """Save the search result to a text file"""
@@ -83,23 +59,33 @@ if __name__ == "__main__":
         exit(1)
 
     try:
-        # Search with variations
-        successful_part, skb_name = search_with_variations(part_number,website)
+        # Search using the chosen function (with built-in variations)
+        result = choose_search_function(website, part_number)
         
-        # Save result to file
-        save_result_to_file(successful_part, skb_name)
-        
-        print(f"\nFinal Result:")
-        print(f"Part Number: {successful_part}")
-        print(f"SKB Name: {skb_name}")
+        if result:
+            # Save result to file
+            save_result_to_file(part_number, result)
+            
+            print(f"\nFinal Result:")
+            print(f"Part Number: {part_number}")
+            print(f"Result: {result}")
+        else:
+            print(f"No results found for part number '{part_number}' on {website}")
+            # Save failure to file
+            with open("search_results.txt", "w") as f:
+                f.write(f"Part Number: {part_number}\n")
+                f.write(f"Website: {website}\n")
+                f.write(f"Status: NO RESULTS FOUND\n")
+                f.write(f"Search Date: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+            print("No results status saved to search_results.txt")
         
     except Exception as e:
         print(f"Search failed: {e}")
         # Save failure to file
         try:
-            
             with open("search_results.txt", "w") as f:
                 f.write(f"Part Number: {part_number}\n")
+                f.write(f"Website: {website}\n")
                 f.write(f"Status: FAILED\n")
                 f.write(f"Error: {str(e)}\n")
                 f.write(f"Search Date: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")

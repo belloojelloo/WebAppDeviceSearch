@@ -3,7 +3,35 @@ from bs4 import BeautifulSoup
 import time
 
 
-def search_part_number_in_system_general_limited(part_number):
+def search_part_number_in_system_general_limited(original_part_number):
+    """Search with variations - try up to 4 times by removing characters from the end"""
+    part_variations = [original_part_number]
+    
+    # Generate variations by removing one character at a time
+    current_part = original_part_number
+    for i in range(3):  # Try 3 more times (total 4 attempts)
+        if len(current_part) > 1:  # Make sure we don't end up with empty string
+            current_part = current_part[:-1]  # Remove last character
+            part_variations.append(current_part)
+    
+    print(f"Will try these part number variations: {part_variations}")
+    
+    for i, part_number in enumerate(part_variations):
+        print(f"\n--- Attempt {i+1}: Trying part number '{part_number}' ---")
+        
+        result = _search_single_part_system_general(part_number)
+        if result:
+            print(f"SUCCESS! Found result for part number '{part_number}': {result}")
+            return result
+        else:
+            print(f"No results found for part number '{part_number}'")
+    
+    # If we get here, no results were found for any variation
+    print(f"No results found for any variation of part number '{original_part_number}' after trying {len(part_variations)} variations")
+    return None
+
+def _search_single_part_system_general(part_number):
+    """Internal function to search for a single part number without variations"""
     with sync_playwright() as p:
         # Launch browser with longer timeout and visible for debugging
         browser = p.chromium.launch(headless=False, slow_mo=1000)
