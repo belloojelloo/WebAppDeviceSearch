@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Search Application</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Device Search Application</h1>
+        </header>
+        
+        <main>
+            <div class="search-section">
+                <div class="input-group">
+                    <label for="partNumber">Part Number:</label>
+                    <input type="text" id="partNumber" placeholder="Enter part number..." maxlength="255">
+                </div>
+                
+                <div class="website-selection">
+                    <label>Select Websites:</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="systemgeneral" value="systemgeneral">
+                            <span class="checkmark"></span>
+                            System General
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="dataio" value="dataio">
+                            <span class="checkmark"></span>
+                            DataIO
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="bpmicro" value="bpmicro">
+                            <span class="checkmark"></span>
+                            BPMicro
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button id="searchBtn" class="search-btn">Search</button>
+                    <button id="clearBtn" class="clear-btn">Clear Results</button>
+                </div>
+                
+                <div class="progress-container" id="progressContainer" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">Initializing search...</div>
+                </div>
+            </div>
+            
+            <div class="results-section">
+                <h2>Search Results:</h2>
+                <div class="results-container" id="resultsContainer">
+                    <div class="no-results">
+                        Enter a part number and select websites to begin searching.
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
