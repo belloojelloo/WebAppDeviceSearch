@@ -205,5 +205,9 @@ def perform_search(search_id, part_number, websites):
         status['error'] = str(e)
         status['current_search'] = f'Error: {str(e)}'
 
+import os
+
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    port = int(os.environ.get("PORT", 5000))  # use Render’s PORT or fallback to 5000 locally
+    app.run(debug=True, host='0.0.0.0', port=port)
+
