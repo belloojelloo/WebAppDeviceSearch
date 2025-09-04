@@ -369,7 +369,7 @@ def _search_single_part_bpmicro(part_number, original_part_number=None):
                     
                     # Method 3: Look for any text containing socket patterns
                     import re
-                    socket_pattern_elements = frame.locator('text=/SM\d+|ASM\d+|FVE\d+/i')
+                    socket_pattern_elements = frame.locator(r'text=/SM\d+|ASM\d+|FVE\d+/i')
                     print(f"Method 3 - Socket patterns: {socket_pattern_elements.count()} elements")
                     
                     # Method 4: Look for h1.entry-title (from memory)
