@@ -114,7 +114,7 @@ def _search_single_part_dataio(part_number):
                     time.sleep(1)
 
                     print("Extracting results...")
-                    # Look for Standard Adapter information and the socket number below it
+                    # Look for Standard Adapter information and the socket number below it!
                     try:
                         # Strategy: Find "Standard Adapter" and look for the actual socket number in the adjacent column
                         adapter_elements = page.locator('text="Standard Adapter"')

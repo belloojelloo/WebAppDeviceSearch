@@ -65,7 +65,7 @@ def _search_single_part_system_general(part_number):
             frame.locator('section[data-cb-name="cbTable"]').wait_for(timeout=30000)
             print("Search section found in iframe!")
             
-            # Debug: Check if elements exist in iframe
+            # Debug: Check if elements exist in iframe!
             print("Debug: Checking if elements exist in iframe...")
             try:
                 input_element = frame.locator('input[name="Value2_1"]')
