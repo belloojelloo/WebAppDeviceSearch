@@ -2,6 +2,7 @@ from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 import time
 import re
+import os
 
 
 def _filter_socket_text(socket_text, original_part_number):
@@ -23,6 +24,23 @@ def _filter_socket_text(socket_text, original_part_number):
     result = ', '.join(filtered_parts)
     return result if result else socket_text  # Return original if nothing left after filtering
 
+
+
+def _is_banner_text(text: str) -> bool:
+    if not text:
+        return False
+    t = text.lower()
+    banned = [
+        'server started',
+        'database loaded',
+        'best-efforts',
+        'prices, and, specifications',
+        'you, may, search, for, an, adapter',
+        'bpm, microsystems, device, search',
+        'adapter:asm',
+        'adapter:fx4asm',
+    ]
+    return any(b in t for b in banned)
 
 
 def search_part_number_in_bpmicro(original_part_number):
@@ -64,8 +82,29 @@ def search_part_number_in_bpmicro(original_part_number):
 
 def _search_single_part_bpmicro(part_number, original_part_number=None):
     with sync_playwright() as p:
-        browser = p.chromium.launch(channel="msedge", headless=True)
-        page = browser.new_page()
+        env_headless = os.environ.get("BPM_HEADLESS", "true").lower() in ("1", "true", "yes")
+        browser = p.chromium.launch(channel="msedge", headless=env_headless, args=[
+            "--disable-blink-features=AutomationControlled",
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
+        ])
+        context = browser.new_context(
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0"
+            ),
+            locale="en-US",
+            timezone_id="UTC",
+            viewport={"width": 1366, "height": 900},
+        )
+        try:
+            context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined});")
+            context.add_init_script("window.chrome = { runtime: {} };")
+            context.add_init_script("Object.defineProperty(navigator, 'languages', {get: () => ['en-US','en']});")
+            context.add_init_script("Object.defineProperty(navigator, 'platform', {get: () => 'Win32'});")
+        except Exception:
+            pass
+        page = context.new_page()
         
         page.set_default_timeout(60000)
         page.set_default_navigation_timeout(60000)
@@ -76,6 +115,10 @@ def _search_single_part_bpmicro(part_number, original_part_number=None):
             # Navigate to the device search page
             print("Navigating to website...")
             page.goto("https://www.bpmmicro.com/device-search/", wait_until="domcontentloaded")
+            try:
+                page.wait_for_load_state("networkidle", timeout=20000)
+            except Exception:
+                pass
             print("Page loaded successfully")
             
             # Wait for iframe to load (using the specific class from the HTML)
@@ -96,14 +139,24 @@ def _search_single_part_bpmicro(part_number, original_part_number=None):
             frame.locator('input[placeholder="Type to search for a device..."]').wait_for(timeout=30000)
             print("Search section found in iframe!")
             
-            # Fill the part number input field in iframe
+            # Fill the part number input field in iframe and fire events
             print("Filling part number...")
             search_input = frame.locator('input[placeholder="Type to search for a device..."]')
+            search_input.fill("")
             search_input.fill(part_number)
+            try:
+                search_input.press("Enter")
+            except Exception:
+                pass
+            try:
+                frame.locator('input[placeholder="Type to search for a device..."]').evaluate(
+                    "(el)=>{ el.dispatchEvent(new Event('input',{bubbles:true})); el.dispatchEvent(new Event('change',{bubbles:true})); }"
+                )
+            except Exception:
+                pass
             
-            # Wait for search results to appear automatically
             print("Waiting for search results to appear...")
-            time.sleep(3)
+            time.sleep(1)
             
             # Wait for search results to load
             try:
@@ -139,8 +192,18 @@ def _search_single_part_bpmicro(part_number, original_part_number=None):
                 except:
                     pass
                 
-                # Wait for the first search result item to appear
-                frame.locator('div[id="search-results"] ul li').first.wait_for(state="visible", timeout=5000)
+                # Wait for the first search result item to appear (retry once)
+                try:
+                    frame.locator('div[id="search-results"] ul li').first.wait_for(state="visible", timeout=5000)
+                except Exception:
+                    print("Retrying to trigger search...")
+                    try:
+                        search_input.fill("")
+                        search_input.fill(part_number)
+                        search_input.press("Enter")
+                    except Exception:
+                        pass
+                    frame.locator('div[id="search-results"] ul li').first.wait_for(state="visible", timeout=7000)
                 print("Search results found!")
             except:
                 print("No search results appeared within timeout")
@@ -154,7 +217,7 @@ def _search_single_part_bpmicro(part_number, original_part_number=None):
                 print("Successfully clicked on first search result!")
                 
                 # Wait for the page to load after clicking
-                time.sleep(3)
+                time.sleep(2)
                 
                 # Check if we navigated to a main BPM Micro product page
                 print("=== Checking current page context ===")
@@ -167,95 +230,41 @@ def _search_single_part_bpmicro(part_number, original_part_number=None):
                         print("Navigated to main BPMicro product page - extracting from main page")
                         
                         # Wait for the main page to load completely
-                        time.sleep(3)
+                        try:
+                            page.wait_for_load_state("networkidle", timeout=15000)
+                        except Exception:
+                            time.sleep(1)
                         
-                        # Try multiple methods to extract socket information from main page
+                        # Restrict main-page extraction to exact table rows only to avoid banner text
                         main_page_text = page.locator('body').inner_text()
-                        
-                        # Method 1: Look for "Socket Modules" in tables
-                        if "Socket Modules" in main_page_text:
-                            print("✓ Found 'Socket Modules' text on main page")
-                            socket_rows = page.locator('tr:has-text("Socket Modules")')
-                            if socket_rows.count() > 0:
-                                print(f"Found {socket_rows.count()} Socket Modules rows")
-                                for i in range(socket_rows.count()):
-                                    try:
-                                        socket_row = socket_rows.nth(i)
-                                        cells = socket_row.locator('td')
-                                        if cells.count() >= 2:
-                                            socket_text = cells.nth(1).inner_text().strip()
-                                            if socket_text and len(socket_text) > 3 and not socket_text.lower() in ['n/a', 'none', '-']:
-                                                print(f"Found socket modules in row {i}: {socket_text}")
-                                                # Clean the socket text
-                                                clean_socket = socket_text.replace('\n', ' ').replace('\t', ' ')
-                                                clean_socket = ' '.join(clean_socket.split())
-                                                # Filter out original part number
-                                                filtered_socket = _filter_socket_text(clean_socket, original_part_number)
-                                                return filtered_socket
-                                    except Exception as row_error:
-                                        print(f"Error processing row {i}: {row_error}")
-                                        continue
-                        
-                        # Method 2: Look for "Socket Adapter" in tables
-                        if "Socket Adapter" in main_page_text:
-                            print("✓ Found 'Socket Adapter' text on main page")
-                            socket_rows = page.locator('tr:has-text("Socket Adapter")')
-                            if socket_rows.count() > 0:
-                                print(f"Found {socket_rows.count()} Socket Adapter rows")
-                                for i in range(socket_rows.count()):
-                                    try:
-                                        socket_row = socket_rows.nth(i)
-                                        cells = socket_row.locator('td')
-                                        if cells.count() >= 2:
-                                            socket_text = cells.nth(1).inner_text().strip()
-                                            if socket_text and len(socket_text) > 3 and not socket_text.lower() in ['n/a', 'none', '-']:
-                                                print(f"Found socket adapter in row {i}: {socket_text}")
-                                                # Clean the socket text
-                                                clean_socket = socket_text.replace('\n', ' ').replace('\t', ' ')
-                                                clean_socket = ' '.join(clean_socket.split())
-                                                # Filter out original part number
-                                                filtered_socket = _filter_socket_text(clean_socket, original_part_number)
-                                                return filtered_socket
-                                    except Exception as row_error:
-                                        print(f"Error processing row {i}: {row_error}")
-                                        continue
-                        
-                        # Method 3: Look for socket patterns in any table cells
-                        import re
-                        all_tables = page.locator('table')
-                        print(f"Found {all_tables.count()} tables on main page")
-                        
-                        for table_idx in range(all_tables.count()):
-                            try:
-                                table = all_tables.nth(table_idx)
-                                table_text = table.inner_text()
-                                
-                                # Look for socket patterns (SM, ASM, FVE followed by numbers/letters)
-                                socket_patterns = re.findall(r'\b((?:SM|ASM|FVE)\d+[A-Z0-9]*)\b', table_text, re.IGNORECASE)
-                                if socket_patterns:
-                                    socket_text = ', '.join(set(socket_patterns))  # Remove duplicates
-                                    print(f"Found socket patterns in table {table_idx}: {socket_text}")
-                                    # Filter out original part number
-                                    filtered_socket = _filter_socket_text(socket_text, original_part_number)
-                                    return filtered_socket
-                                    
-                                # Also look for longer alphanumeric patterns that could be socket numbers
-                                long_patterns = re.findall(r'\b([A-Z0-9]{8,})\b', table_text)
-                                if long_patterns:
-                                    # Filter to likely socket numbers (contain both letters and numbers)
-                                    likely_sockets = [p for p in long_patterns if re.search(r'[A-Z]', p) and re.search(r'\d', p)]
-                                    if likely_sockets:
-                                        socket_text = ', '.join(set(likely_sockets[:3]))  # Take first 3, remove duplicates
-                                        print(f"Found likely socket patterns in table {table_idx}: {socket_text}")
-                                        # Filter out original part number
-                                        filtered_socket = _filter_socket_text(socket_text, original_part_number)
-                                        return filtered_socket
-                                        
-                            except Exception as table_error:
-                                print(f"Error processing table {table_idx}: {table_error}")
-                                continue
-                        
-                        print("No socket information found on main page")
+                        if _is_banner_text(main_page_text):
+                            print("Detected banner text on main page; skipping.")
+                            return "No socket information found on product page"
+                        socket_rows = page.locator('tr:has-text("Socket Modules")')
+                        if socket_rows.count() > 0:
+                            print("✓ Found 'Socket Modules' on main page")
+                            cells = socket_rows.first.locator('td')
+                            if cells.count() >= 2:
+                                socket_text = cells.nth(1).inner_text().strip()
+                                if _is_banner_text(socket_text):
+                                    print("Banner-like content detected in Socket Modules cell; skipping.")
+                                    return "No Socket information found"
+                                clean_socket = ' '.join(socket_text.replace('\n', ' ').replace('\t', ' ').split())
+                                filtered_socket = _filter_socket_text(clean_socket, original_part_number)
+                                return filtered_socket
+                        adapter_rows = page.locator('tr:has-text("Socket Adapter")')
+                        if adapter_rows.count() > 0:
+                            print("✓ Found 'Socket Adapter' on main page")
+                            cells = adapter_rows.first.locator('td')
+                            if cells.count() >= 2:
+                                socket_text = cells.nth(1).inner_text().strip()
+                                if _is_banner_text(socket_text):
+                                    print("Banner-like content detected in Socket Adapter cell; skipping.")
+                                    return "No Socket information found"
+                                clean_socket = ' '.join(socket_text.replace('\n', ' ').replace('\t', ' ').split())
+                                filtered_socket = _filter_socket_text(clean_socket, original_part_number)
+                                return filtered_socket
+                        print("No exact socket rows on main page; skipping to iframe extraction")
                         return "No socket information found on product page"
                     else:
                         print("Still in iframe context - continuing with iframe extraction")
@@ -267,7 +276,21 @@ def _search_single_part_bpmicro(part_number, original_part_number=None):
                 try:
                     # Wait for the page to fully load after clicking
                     print("Waiting for device information table to load...")
-                    time.sleep(5)
+                    time.sleep(2)
+
+                    # Try to scroll the iframe content so the table/row becomes visible
+                    try:
+                        print("Attempting to scroll 'Socket Modules' row into view...")
+                        frame.locator('tr:has-text("Socket Modules")').first.scroll_into_view_if_needed(timeout=2000)
+                        time.sleep(0.5)
+                    except:
+                        try:
+                            print("Socket row not immediately found; scrolling through iframe...")
+                            for _ in range(4):
+                                frame.evaluate("() => window.scrollBy(0, Math.floor(window.innerHeight*0.9))")
+                                time.sleep(0.4)
+                        except Exception:
+                            pass
                     
                     # Debug: Print all page content to understand structure
                     print("=== DEBUG: Getting page content ===")
@@ -309,6 +332,32 @@ def _search_single_part_bpmicro(part_number, original_part_number=None):
                     
                     # Try multiple approaches to find socket modules
                     print("=== Trying different selectors ===")
+
+                    # Method 0: Exact parse of device parameters table using BeautifulSoup
+                    try:
+                        device_tables = frame.locator('table.device-parameters-table')
+                        dt_count = device_tables.count()
+                        print(f"Method 0 - device-parameters-table count: {dt_count}")
+                        for di in range(dt_count):
+                            try:
+                                table_html = device_tables.nth(di).inner_html()
+                                soup = BeautifulSoup(table_html, 'html.parser')
+                                rows = soup.find_all('tr')
+                                for row in rows:
+                                    cells = row.find_all('td')
+                                    if len(cells) >= 2:
+                                        key_text = cells[0].get_text(strip=True)
+                                        if key_text.lower() == 'socket modules':
+                                            value_text = cells[1].get_text(" ", strip=True)
+                                            if value_text:
+                                                print(f"Method 0 - Found Socket Modules: {value_text}")
+                                                clean_socket = ' '.join(value_text.replace('\n', ' ').replace('\t', ' ').split())
+                                                filtered_socket = _filter_socket_text(clean_socket, original_part_number)
+                                                return filtered_socket
+                            except Exception as m0err:
+                                print(f"Method 0 - error parsing device table {di}: {m0err}")
+                    except Exception as m0outer:
+                        print(f"Method 0 - outer error: {m0outer}")
                     
                     # Method 1: Look for "Socket Adapter" (from memory)
                     socket_adapter_rows = frame.locator('tr:has-text("Socket Adapter")')
@@ -354,6 +403,9 @@ def _search_single_part_bpmicro(part_number, original_part_number=None):
                         cells = socket_row.locator('td')
                         if cells.count() >= 2:
                             socket_text = cells.nth(1).inner_text().strip()
+                            if _is_banner_text(socket_text):
+                                print("Banner-like content detected in iframe adapter cell; skipping.")
+                                return "No Socket information found"
                             if socket_text and len(socket_text) > 3:
                                 print(f"Found socket adapter: {socket_text}")
                                 # Clean the socket text
@@ -370,6 +422,9 @@ def _search_single_part_bpmicro(part_number, original_part_number=None):
                         cells = socket_row.locator('td')
                         if cells.count() >= 2:
                             socket_text = cells.nth(1).inner_text().strip()
+                            if _is_banner_text(socket_text):
+                                print("Banner-like content detected in iframe modules cell; skipping.")
+                                return "No Socket information found"
                             if socket_text and len(socket_text) > 3:
                                 print(f"Found socket modules: {socket_text}")
                                 # Clean the socket text
