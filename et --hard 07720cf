@@ -1,0 +1,10 @@
+[33ma592f76[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31mneworigin/main[m[33m)[m Fix empty Dockerfile - create working Dockerfile
+[33m9bbe8d9[m Fix Dockerfile - restore working deployment configuration
+[33m3254117[m Fix Dockerfile deployment issue
+[33m07720cf[m even more changes
+[33m6562f81[m new edits
+[33m26afc14[m chromium
+[33mfa57138[m fix regex escape sequence syntax warning
+[33m40b7bae[m fix lxml compatibility for python 3.13
+[33m902b475[m mm
+[33mf1d2fe0[m cascade
